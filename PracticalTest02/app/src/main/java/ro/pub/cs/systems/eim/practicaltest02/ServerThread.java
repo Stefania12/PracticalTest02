@@ -1,17 +1,39 @@
 package ro.pub.cs.systems.eim.practicaltest02;
 
 import android.util.Log;
+import android.widget.TextView;
+
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.TimeZone;
+
+import cz.msebera.android.httpclient.HttpEntity;
+import cz.msebera.android.httpclient.HttpResponse;
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.ResponseHandler;
+import cz.msebera.android.httpclient.client.methods.HttpGet;
+import cz.msebera.android.httpclient.impl.client.BasicResponseHandler;
+import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
+import cz.msebera.android.httpclient.util.EntityUtils;
 
 public class ServerThread extends Thread {
     public int port;
     public ServerSocket serverSocket = null;
     public int ceva = 0;
+
+    public Hashtable<String, String> cache = new Hashtable<>();
+
+    private TextView res;
 
     private class CommunicationThread extends Thread {
         private Socket socket;
@@ -21,6 +43,29 @@ public class ServerThread extends Thread {
             Log.d(Constants.TAG, "Server communication thread started");
             this.serverThread = serverThread;
             this.socket = socket;
+        }
+
+        private String callApi3(String currency) {
+            HttpClient httpClient = new DefaultHttpClient();
+            String pageSourceCode = "";
+
+            try {
+                HttpGet httpGet = new HttpGet(Constants.GET_URL + currency + ".json");
+                HttpResponse httpGetResponse = httpClient.execute(httpGet);
+
+
+                HttpEntity httpGetEntity = httpGetResponse.getEntity();
+                if (httpGetEntity != null) {
+                    pageSourceCode = EntityUtils.toString(httpGetEntity);
+
+                }
+                Log.d(Constants.TAG, "response: "+pageSourceCode);
+                return pageSourceCode;
+            } catch (Exception e) {
+                Log.d(Constants.TAG, e.getMessage());
+                e.printStackTrace();
+            }
+            return null;
         }
 
         @Override
@@ -40,7 +85,28 @@ public class ServerThread extends Thread {
 
                 String currency = bufferedReader.readLine();
 
-                printWriter.println("Hello " + currency + " " + (ceva++));
+                TimeZone tz = TimeZone.getTimeZone("UTC");
+                DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
+                df.setTimeZone(tz);
+                String nowAsISO = df.format(new Date());
+
+                long currentMillis = (new Date()).getTime();
+
+                String clientResponse = "...";
+                if (!cache.containsKey(currency) ||
+                        currentMillis - (new Date(new JSONObject(cache.get(currency)).getJSONObject("time").getString("updated"))).getTime() > 2000 ) {
+
+                    String result = callApi3(currency);
+                    Log.d(Constants.TAG, "Api response: " + result);
+
+                    cache.put(currency, result);
+                }
+
+                clientResponse = cache.get(currency);
+
+                String rate = new JSONObject(cache.get(currency)).getJSONObject("bpi").getJSONObject(currency).getString("rate");
+                
+                printWriter.println(rate);
 
             } catch (Exception e) {
                 Log.d(Constants.TAG, "[COMMUNICATION THREAD] An exception has occurred: " + e.getMessage());
