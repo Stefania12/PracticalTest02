@@ -94,7 +94,7 @@ public class ServerThread extends Thread {
 
                 String clientResponse = "...";
                 if (!cache.containsKey(currency) ||
-                        currentMillis - (new Date(new JSONObject(cache.get(currency)).getJSONObject("time").getString("updated"))).getTime() > 2000 ) {
+                        currentMillis - (new Date(new JSONObject(cache.get(currency)).getJSONObject("time").getString("updated"))).getTime() > 20000 ) {
 
                     String result = callApi3(currency);
                     Log.d(Constants.TAG, "Api response: " + result);
